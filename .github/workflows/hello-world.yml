@@ -63,3 +63,61 @@ jobs:
         run: |
           last -a || true
           last -x | grep -E "shutdown|crash|panic|oom|error|filesystem|security|authentication failure|sudo" || true
+      - name: steps with different shell 
+        shell: bash
+        run: |
+          echo "This step uses bash shell"
+      - name: steps with different shell (sh)
+        shell: sh
+        run: |
+          echo "This step uses sh shell"
+      - name: steps with different shell (pwsh)
+        shell: pwsh
+        run: |
+          echo "This step uses pwsh shell"
+      - name: steps with different shell (python)
+        shell: python
+        run: |
+          print("This step uses python shell")
+      - name: steps with different shell (ruby)
+        shell: ruby {0}
+        run: |
+          puts "This step uses ruby shell"
+      - name: steps with different shell (node)
+        shell: node {0}
+        run: |
+          console.log("This step uses node shell")
+      - name: Install zsh and ksh
+        run: sudo apt-get update && sudo apt-get install -y zsh ksh
+      - name: steps with different shell (zsh)
+        shell: zsh {0}
+        run: |
+          echo "This step uses zsh shell"
+      - name: steps with different shell (ksh)
+        shell: ksh {0}
+        run: |
+          echo "This step uses ksh shell"
+
+  hello-windows:
+    runs-on: windows-latest
+    steps:
+      - name: steps with different shell (cmd)
+        shell: cmd
+        run: |
+          echo This step uses cmd shell
+      - name: steps with different shell (powershell)
+        shell: powershell
+        run: |
+          Write-Output "This step uses powershell shell"
+      - name: steps with different shell (pwsh)
+        shell: pwsh
+        run: |
+          Write-Output "This step uses pwsh shell"
+      - name: steps with different shell (bash)
+        shell: bash
+        run: |
+          echo "This step uses bash shell (Git Bash)"
+      - name: steps with different shell (python)
+        shell: python
+        run: |
+          print("This step uses python shell")
