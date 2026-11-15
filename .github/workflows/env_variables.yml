@@ -1,5 +1,5 @@
 name: env_variables
-Description: Demonstrates the use of environment variables at workflow, job, and step levels in GitHub Actions.
+# Description: Demonstrates the use of environment variables at workflow, job, and step levels in GitHub Actions.
 
 on:
   push:
