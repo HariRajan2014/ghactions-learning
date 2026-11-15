@@ -50,7 +50,10 @@ jobs:
   job-1:
     runs-on: ubuntu-latest
 
-    # PART 4 (setup): publish a step output as a JOB output so other jobs can read it.
+    # PART 4 (job-1 side): this "outputs:" block is REQUIRED for step 4a in job-2.
+    # job-2 cannot see job-1's steps, so job-1 must publish the value here as a JOB output.
+    #   left  = job output name (out_greeting)
+    #   right = step output to copy (step id make-greeting, output out_greeting)
     outputs:
       out_greeting: ${{ steps.make-greeting.outputs.out_greeting }}
 
@@ -84,7 +87,8 @@ jobs:
           echo "[from OUTPUT env variable] OUT_ENV_DEPLOY_TARGET = $OUT_ENV_DEPLOY_TARGET"
 
       # PART 3 - OUTPUT VIA STEP OUTPUT ($GITHUB_OUTPUT)
-      # Write name=value to the file $GITHUB_OUTPUT. Give the step an id so you can find it later.
+      # WRITER (3a) needs only 2 things: an "id:" and a line  echo "name=value" >> "$GITHUB_OUTPUT"
+      # 3a does NOT use ${{ steps.make-greeting.outputs.out_greeting }} - that value does not exist until 3a finishes.
       - name: Part 3a - Save a value as a step output
         id: make-greeting
         env:
@@ -98,7 +102,8 @@ jobs:
           echo "out_greeting=$greeting" >> "$GITHUB_OUTPUT"
           echo "[saved as OUTPUT step output] out_greeting = $greeting"
 
-      # Read it with ${{ steps.<id>.outputs.<name> }}.
+      # READER (3b) is where ${{ steps.<id>.outputs.<name> }} is needed: any step AFTER the writer
+      # (and the job-1 "outputs:" block at the top, which copies it up for other jobs).
       - name: Part 3b - Use the step output in a later step
         env:
           OUT_STEP_GREETING: ${{ steps.make-greeting.outputs.out_greeting }}
@@ -110,8 +115,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: job-1   # required to read job-1's outputs, and makes job-2 wait for job-1
     steps:
-      # PART 4 - OUTPUT VIA JOB OUTPUT
-      # Read it with ${{ needs.<job>.outputs.<name> }}.
+      # PART 4 - OUTPUT VIA JOB OUTPUT (job-2 side)
+      # 4a does NOT use steps.make-greeting... (that step belongs to job-1).
+      # It reads needs.job-1.outputs.out_greeting, which exists only because job-1's "outputs:" block
+      # (see the top of job-1) copied the value up. Without that block this value is empty.
       - name: Part 4a - Read the job output from job-1
         env:
           OUT_JOB_GREETING: ${{ needs.job-1.outputs.out_greeting }}
