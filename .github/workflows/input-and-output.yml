@@ -3,16 +3,24 @@ name: Input and Output
 # ---------------------------------------------------------------------------
 # WHAT THIS WORKFLOW SHOWS
 #
-#   INPUT  = a value YOU give when you start the workflow.
-#   OUTPUT = a value a step or job PRODUCES so later steps or jobs can use it.
+#   INPUT  = a value YOU give when you start the workflow (the "Run workflow" form).
+#            Declared under on: workflow_dispatch: inputs:   Read with ${{ inputs.<name> }}
+#            Steps can only READ it. It has the same value in every job.
+#   OUTPUT = a value a step or job CREATES while running, so later steps or jobs can use it.
 #
-# Three ways to pass a value forward (Parts 2, 3 and 4 below):
+# NAMING (so the logs are easy to read)
+#   inp_*  or INP_*   = the value came from an INPUT
+#   out_*  or OUT_*   = the value is an OUTPUT
+#                       OUT_ENV_*  env variable | out_greeting  step/job output (OUT_STEP_* / OUT_JOB_* in the shell)
+#   Every echo line starts with [from INPUT] or [from OUTPUT ...] so you see where the value came from.
 #
-#   Part  Way            Write it                            Read it                          Reaches
-#   ----  -------------  ----------------------------------  -------------------------------  -----------------
-#   2     env variable   echo "NAME=x" >> "$GITHUB_ENV"      $NAME                            later steps, same job
-#   3     step output    echo "name=x" >> "$GITHUB_OUTPUT"   steps.<id>.outputs.name          later steps, same job
-#   4     job output     outputs: block on the job           needs.<job>.outputs.name         other jobs
+# Three ways to pass an OUTPUT forward (Parts 2, 3 and 4 below):
+#
+#   Part  Way            Write it                                  Read it                          Reaches
+#   ----  -------------  ----------------------------------------  -------------------------------  -----------------
+#   2     env variable   echo "OUT_ENV_X=x" >> "$GITHUB_ENV"        $OUT_ENV_X                       later steps, same job
+#   3     step output    echo "out_x=x" >> "$GITHUB_OUTPUT"        steps.<id>.outputs.out_x         later steps, same job
+#   4     job output     outputs: block on the job                 needs.<job>.outputs.out_x        other jobs
 #
 # Easiest: env variable (Part 2). To reach ANOTHER job you must use a job output (Part 4).
 #
@@ -21,17 +29,18 @@ name: Input and Output
 
 on:
   workflow_dispatch:
+    # INPUTS: the values you fill in on the "Run workflow" form (inp_ = input)
     inputs:
-      name:
+      inp_name:
         description: 'Your name'
         type: string
         default: 'World'
-      target_env:
+      inp_target_env:
         description: 'Target environment'
         type: choice
         options: [dev, staging, prod]
         default: dev
-      shout:
+      inp_shout:
         description: 'Upper-case the greeting'
         type: boolean
         default: false
@@ -43,7 +52,7 @@ jobs:
 
     # PART 4 (setup): publish a step output as a JOB output so other jobs can read it.
     outputs:
-      greeting: ${{ steps.make-greeting.outputs.greeting }}
+      out_greeting: ${{ steps.make-greeting.outputs.out_greeting }}
 
     steps:
       # PART 1 - INPUTS
@@ -51,43 +60,50 @@ jobs:
       # Tip: copy it into env: first, then use $VAR in the script (safer than pasting it into the script).
       - name: Part 1 - Show the inputs
         env:
-          NAME: ${{ inputs.name }}
-          TARGET_ENV: ${{ inputs.target_env }}
-          SHOUT: ${{ inputs.shout }}
+          INP_NAME: ${{ inputs.inp_name }}
+          INP_TARGET_ENV: ${{ inputs.inp_target_env }}
+          INP_SHOUT: ${{ inputs.inp_shout }}
         run: |
-          echo "name:       $NAME"
-          echo "target_env: $TARGET_ENV"
-          echo "shout:      $SHOUT"
+          echo "[from INPUT] inp_name       = $INP_NAME"
+          echo "[from INPUT] inp_target_env = $INP_TARGET_ENV"
+          echo "[from INPUT] inp_shout      = $INP_SHOUT"
 
       # PART 2 - OUTPUT VIA ENV VARIABLE ($GITHUB_ENV)
       # Write NAME=value to the file $GITHUB_ENV. It becomes a normal env variable.
       - name: Part 2a - Save a value as an env variable
         env:
-          TARGET_ENV: ${{ inputs.target_env }}
-        run: echo "DEPLOY_TARGET=$TARGET_ENV-cluster" >> "$GITHUB_ENV"
+          INP_TARGET_ENV: ${{ inputs.inp_target_env }}
+        run: |
+          echo "[from INPUT] inp_target_env = $INP_TARGET_ENV"
+          echo "OUT_ENV_DEPLOY_TARGET=$INP_TARGET_ENV-cluster" >> "$GITHUB_ENV"
+          echo "[saved as OUTPUT env variable] OUT_ENV_DEPLOY_TARGET = $INP_TARGET_ENV-cluster"
 
       # It is available from the NEXT step on (not inside the step that wrote it).
       - name: Part 2b - Use the env variable in a later step
-        run: echo "DEPLOY_TARGET is $DEPLOY_TARGET"
+        run: |
+          echo "[from OUTPUT env variable] OUT_ENV_DEPLOY_TARGET = $OUT_ENV_DEPLOY_TARGET"
 
       # PART 3 - OUTPUT VIA STEP OUTPUT ($GITHUB_OUTPUT)
       # Write name=value to the file $GITHUB_OUTPUT. Give the step an id so you can find it later.
       - name: Part 3a - Save a value as a step output
         id: make-greeting
         env:
-          NAME: ${{ inputs.name }}
-          SHOUT: ${{ inputs.shout }}
+          INP_NAME: ${{ inputs.inp_name }}
+          INP_SHOUT: ${{ inputs.inp_shout }}
         run: |
-          greeting="Hello, $NAME"
-          if [ "$SHOUT" = "true" ]; then greeting="${greeting^^}"; fi
-          echo "greeting=$greeting" >> "$GITHUB_OUTPUT"
+          echo "[from INPUT] inp_name  = $INP_NAME"
+          echo "[from INPUT] inp_shout = $INP_SHOUT"
+          greeting="Hello, $INP_NAME"
+          if [ "$INP_SHOUT" = "true" ]; then greeting="${greeting^^}"; fi
+          echo "out_greeting=$greeting" >> "$GITHUB_OUTPUT"
+          echo "[saved as OUTPUT step output] out_greeting = $greeting"
 
       # Read it with ${{ steps.<id>.outputs.<name> }}.
       - name: Part 3b - Use the step output in a later step
         env:
-          GREETING: ${{ steps.make-greeting.outputs.greeting }}
+          OUT_STEP_GREETING: ${{ steps.make-greeting.outputs.out_greeting }}
         run: |
-          echo "greeting is: $GREETING"
+          echo "[from OUTPUT step output] out_greeting = $OUT_STEP_GREETING"
 
   # ===== JOB 2: a different job =====
   job-2:
@@ -98,10 +114,11 @@ jobs:
       # Read it with ${{ needs.<job>.outputs.<name> }}.
       - name: Part 4a - Read the job output from job-1
         env:
-          GREETING: ${{ needs.job-1.outputs.greeting }}
+          OUT_JOB_GREETING: ${{ needs.job-1.outputs.out_greeting }}
         run: |
-          echo "greeting from job-1: $GREETING"
+          echo "[from OUTPUT job output] out_greeting = $OUT_JOB_GREETING"
 
       # Env variables do NOT cross jobs, so this prints <empty>. Use a job output instead.
       - name: Part 4b - Env variable from job-1 is not here
-        run: echo "DEPLOY_TARGET here is ${DEPLOY_TARGET:-<empty>}"
+        run: |
+          echo "[OUTPUT env variable from job-1] OUT_ENV_DEPLOY_TARGET = ${OUT_ENV_DEPLOY_TARGET:-<empty>}"
