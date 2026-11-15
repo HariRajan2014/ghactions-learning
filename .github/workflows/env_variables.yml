@@ -1,0 +1,38 @@
+name: GH Events
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+env:
+  GlobalAuthor_NAME: "Mr tomandjerry is defined in global environment"
+jobs:
+  job-1-show-event:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show event variables-1
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          Author_NAME: "Mr bob defined in runners environment in step 1"
+        run: |
+          echo "event_name (context):   $EVENT_NAME"
+          echo "GITHUB_EVENT_NAME (env): $GITHUB_EVENT_NAME"
+          echo "event.action:           ${EVENT_ACTION:-<none>}"
+          echo "step 1 author_NAME:               $Author_NAME"
+          echo "global author_NAME:             $GlobalAuthor_NAME"
+      - name: Show event variables-2
+        env:
+          Author_NAME2: "Mr Smith defined in runners environment in step 2"
+        run: |
+          echo "event_name (context):   $EVENT_NAME"
+          echo "GITHUB_EVENT_NAME (env): $GITHUB_EVENT_NAME"
+          echo "event.action:           ${EVENT_ACTION:-<none>}"
+          echo "step 1 author_NAME:               $Author_NAME"
+          echo "step 2 author_NAME:               $Author_NAME2"
+          echo "global author_NAME:             $GlobalAuthor_NAME"
+
+
+  
