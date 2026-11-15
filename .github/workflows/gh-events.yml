@@ -1,0 +1,52 @@
+name: GH Events
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  show-event:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show event variables
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          REF_NAME: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "event_name (context):   $EVENT_NAME"
+          echo "GITHUB_EVENT_NAME (env): $GITHUB_EVENT_NAME"
+          echo "event.action:           ${EVENT_ACTION:-<none>}"
+          echo "ref_name:               $REF_NAME"
+          echo "actor:                  $ACTOR"
+          echo "repository:             $REPOSITORY"
+          echo "GITHUB_EVENT_PATH:      $GITHUB_EVENT_PATH"
+
+      - name: Only on push
+        if: ${{ github.event_name == 'push' }}
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          echo "This was a push"
+          echo "Head commit message: $COMMIT_MESSAGE"
+
+      - name: Only on pull request
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "This was a pull request"
+          echo "PR #$PR_NUMBER: $PR_TITLE"
+
+      - name: Only on manual run
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: echo "This was a manual run (Run workflow button)"
+
+      - name: Show full event payload
+        run: cat "$GITHUB_EVENT_PATH"
