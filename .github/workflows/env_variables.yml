@@ -6,10 +6,20 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# NOTE: an env variable is visible only where it is defined
+#   workflow-level env -> all jobs, all steps
+#   job-level env      -> all steps in that job
+#   step-level env     -> that step only (empty in the next step)
+# Same name at two levels? Most specific wins: step > job > workflow
+# A step value always overrides, but only inside that step (higher levels stay unchanged)
+# Step env also beats a value set via $GITHUB_ENV
 env:
   GlobalAuthor_NAME: "Mr tomandjerry is defined in global environment"
 jobs:
   job-1-show-event:
+    env:
+      JOB_AUTHOR_NAME: "Mr Alice defined in job environment"
     runs-on: ubuntu-latest
     steps:
       - name: Show event variables-1
@@ -22,6 +32,7 @@ jobs:
           echo "GITHUB_EVENT_NAME (env): $GITHUB_EVENT_NAME"
           echo "event.action:           ${EVENT_ACTION:-<none>}"
           echo "step 1 author_NAME:               $Author_NAME"
+          echo "job author_NAME:                $JOB_AUTHOR_NAME"
           echo "global author_NAME:             $GlobalAuthor_NAME"
       - name: Show event variables-2
         env:
@@ -32,6 +43,7 @@ jobs:
           echo "event.action:           ${EVENT_ACTION:-<none>}"
           echo "step 1 author_NAME:               $Author_NAME"
           echo "step 2 author_NAME:               $Author_NAME2"
+          echo "job author_NAME:                $JOB_AUTHOR_NAME"
           echo "global author_NAME:             $GlobalAuthor_NAME"
 
 
