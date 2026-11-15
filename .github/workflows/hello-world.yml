@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      simulate_failure:
+        description: 'Make flaky-job fail to demo failure() and always()'
+        type: boolean
+        default: false
 
 jobs:
   hello:
@@ -121,3 +126,56 @@ jobs:
         shell: python
         run: |
           print("This step uses python shell")
+
+  job-3:
+    runs-on: ubuntu-latest
+    needs: [hello, hello-windows]
+    steps:
+      - name: Run after dependencies
+        run: echo "job-3 runs only if hello and hello-windows succeeded"
+
+  # Demo: success(), failure() and always() conditions.
+  # Run manually (Run workflow) and tick simulate_failure to see the failure path.
+  flaky-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do some work
+        env:
+          SIMULATE_FAILURE: ${{ inputs.simulate_failure }}
+        run: |
+          echo "Doing work..."
+          if [ "$SIMULATE_FAILURE" = "true" ]; then
+            echo "Simulated failure"
+            exit 1
+          fi
+
+  # Default: runs only when flaky-job succeeds.
+  deploy:
+    runs-on: ubuntu-latest
+    needs: flaky-job
+    steps:
+      - run: echo "flaky-job succeeded, safe to deploy"
+
+  # Use case: alert only when something upstream failed.
+  notify-failure:
+    runs-on: ubuntu-latest
+    needs: flaky-job
+    if: ${{ failure() }}
+    steps:
+      - run: echo "flaky-job failed, sending alert (e.g. Slack or email)"
+
+  # Use case: always report the outcome, pass or fail (also runs on cancel with always()).
+  summary:
+    runs-on: ubuntu-latest
+    needs: [flaky-job, deploy, notify-failure]
+    if: ${{ always() }}
+    steps:
+      - name: Print results
+        env:
+          FLAKY: ${{ needs.flaky-job.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          NOTIFY: ${{ needs.notify-failure.result }}
+        run: |
+          echo "flaky-job:      $FLAKY"
+          echo "deploy:         $DEPLOY"
+          echo "notify-failure: $NOTIFY"
